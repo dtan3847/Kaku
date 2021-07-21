@@ -27,7 +27,6 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
 
     private val mJmDbHelper: JmDatabaseHelper = JmDatabaseHelper.instance(context)
     private val mDeinflector: Deinflector = Deinflector(context)
-    private val mParser: VeParser = VeParser()
 
     interface SearchJmTaskDone
     {
@@ -63,15 +62,15 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
     @Throws(SQLException::class)
     private fun getMatchedEntries(text: String, textOffset: Int, entries: List<EntryOptimized>): List<JmSearchResult>
     {
-        val words = mParser.parse(text)
+        val end = if (textOffset + 80 >= text.length) text.length else textOffset + 80
+        var word = text.substring(textOffset, end)
         val seenEntries = HashSet<EntryOptimized>()
         val results = ArrayList<JmSearchResult>()
 
-        for (word in words)
+        while (word.isNotEmpty())
         {
-            val wordStr = word.toString()
             // Find deinflections and add them
-            val deinfResultsList: List<DeinflectionInfo> = mDeinflector.getPotentialDeinflections(wordStr)
+            val deinfResultsList: List<DeinflectionInfo> = mDeinflector.getPotentialDeinflections(word)
             var count = 0
             for (deinfInfo in deinfResultsList)
             {
@@ -100,7 +99,7 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
                     }
 
                     if (valid){
-                        results.add(JmSearchResult(entry, deinfInfo, wordStr))
+                        results.add(JmSearchResult(entry, deinfInfo, word))
                         seenEntries.add(entry)
                     }
 
@@ -109,7 +108,7 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
             }
 
             // Add all exact matches as well
-            val filteredEntry: List<EntryOptimized> = entries.filter { entry -> entry.kanji == wordStr }
+            val filteredEntry: List<EntryOptimized> = entries.filter { entry -> entry.kanji == word }
             for (entry in filteredEntry)
             {
                 if (seenEntries.contains(entry))
@@ -117,9 +116,11 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
                     continue
                 }
 
-                results.add(JmSearchResult(entry, DeinflectionInfo(wordStr, 0, ""), wordStr))
+                results.add(JmSearchResult(entry, DeinflectionInfo(word, 0, ""), word))
                 seenEntries.add(entry)
             }
+
+            word = word.substring(0, word.length - 1)
         }
 
         return results
