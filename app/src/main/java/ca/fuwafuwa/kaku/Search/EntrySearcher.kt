@@ -1,124 +1,109 @@
-package ca.fuwafuwa.kaku.Search;
+package ca.fuwafuwa.kaku.Search
 
-import android.util.Log;
+import android.util.Log
+import ca.fuwafuwa.kaku.Database.JmDictDatabase.Models.EntryOptimized
+import java.util.*
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import ca.fuwafuwa.kaku.Database.JmDictDatabase.Models.EntryOptimized;
-
-public class EntrySearcher {
-    private static final String TAG = "EntrySearcher";
-    private final List<EntryOptimized> dict;
-    private final Map<String, List<Integer>> lookupKanji = new HashMap<>();
-    private final Map<String, List<Integer>> lookupKana = new HashMap<>();
-
-    EntrySearcher(List<EntryOptimized> dict) {
-        this.dict = dict;
-        // Create maps from all entries
-        for (int i = 0; i < dict.size(); i++) {
-            EntryOptimized e = dict.get(i);
-            List<Integer> existing;
-            if (!lookupKanji.containsKey(e.getKanji())) {
-                existing = lookupKanji.put(e.getKanji(), new ArrayList<>());
-            } else {
-                existing = lookupKanji.get(e.getKanji());
-            }
-            existing.add(i);
-            for (String reading : e.getReadings().split(", ")) {
-                List<Integer> existingR;
-                if (!lookupKana.containsKey(reading)) {
-                    existingR = lookupKana.put(reading, new ArrayList<>());
-                } else {
-                    existingR = lookupKana.get(reading);
-                }
-                existingR.add(i);
-            }
-        }
-        Log.d(TAG, "First 5 JmDict entries");
-        for (int i = 0; i < 5; i++) {
-            Log.d(TAG, dict.get(i).toString());
-        }
-        Log.d(TAG, String.format(
-                "Built lookup tables: kanji %s, kana %s, entries %s",
-                lookupKanji.size(),
-                lookupKana.size(),
-                dict.size()
-        ));
-    }
-
-    public List<EntryOptimized> search(String text) {
-        List<EntryOptimized> ret = null;
-        ret = searchInner(text);
-        if(ret != null) return ret;
-        ret = searchInner(replaceHiraWithKata(text));
-        if(ret != null) return ret;
-        ret = searchInner(replaceKataWithHira(text));
-        if(ret != null) return ret;
-        ret = jsonDictAnyAsIs(text);
+class EntrySearcher internal constructor(private val dict: List<EntryOptimized>) {
+    private val lookupKanji: MutableMap<String, MutableList<Int>> = HashMap()
+    private val lookupKana: MutableMap<String, MutableList<Int>> = HashMap()
+    fun search(text: String): List<EntryOptimized>? {
+        var ret: List<EntryOptimized>? = null
+        ret = searchInner(text)
+        if (ret != null) return ret
+        ret = searchInner(replaceHiraWithKata(text))
+        if (ret != null) return ret
+        ret = searchInner(replaceKataWithHira(text))
+        if (ret != null) return ret
+        ret = jsonDictAnyAsIs(text)
         //todo: custom dicts
-        return ret;
+        return ret
     }
 
-    private List<EntryOptimized> searchInner(String text) {
+    private fun searchInner(text: String): List<EntryOptimized>? {
         if (lookupKanji.containsKey(text)) {
-            return getFromDict(lookupKanji.get(text), text);
+            return getFromDict(lookupKanji[text]!!, text)
         } else if (lookupKana.containsKey(text)) {
-            return getFromDict(lookupKana.get(text), text);
+            return getFromDict(lookupKana[text]!!, text)
         }
-        return null;
+        return null
     }
 
-    private List<EntryOptimized> getFromDict(List<Integer> indexes, String text) {
-        List<EntryOptimized> ret = new ArrayList<>();
-        for (int i : indexes) {
-            EntryOptimized e = dict.get(i);
+    private fun getFromDict(indexes: List<Int>, text: String): List<EntryOptimized> {
+        val ret: MutableList<EntryOptimized> = ArrayList()
+        for (i in indexes) {
+            val e = dict[i]
             // todo: are entry.from, entry.found needed?
-            ret.add(e);
+            ret.add(e)
         }
         // pos already exists for non-primary entries
-        return ret;
+        return ret
     }
 
-    private String replaceHiraWithKata(String text) {
-        StringBuilder sb = new StringBuilder();
-        for(int i = 0; i < text.length(); i++)
-        {
-            int codepoint = text.codePointAt(i);
-            if(codepoint >= 0x3040 && codepoint <= 0x3096)
-                codepoint += (0x30A0 - 0x3040);
-            else if(codepoint >= 0x309D && codepoint <= 0x309E)
-                codepoint += (0x30A0 - 0x3040);
-            sb.append(codepoint);
+    private fun replaceHiraWithKata(text: String): String {
+        val sb = StringBuilder()
+        for (i in text.indices) {
+            var codepoint = text.codePointAt(i)
+            if (codepoint in 0x3040..0x3096) codepoint += 0x30A0 - 0x3040 else if (codepoint in 0x309D..0x309E) codepoint += 0x30A0 - 0x3040
+            sb.append(codepoint)
         }
-        return sb.toString();
+        return sb.toString()
     }
 
-    private String replaceKataWithHira(String text) {
-        StringBuilder sb = new StringBuilder();
-        for(int i = 0; i < text.length(); i++)
-        {
-            int codepoint = text.codePointAt(i);
-            if(codepoint >= 0x30A0 && codepoint <= 0x30F6)
-                codepoint -= (0x30A0 - 0x3040);
-            else if(codepoint >= 0x30FD && codepoint <= 0x30FE)
-                codepoint -= (0x30A0 - 0x3040);
-            sb.append(codepoint);
+    private fun replaceKataWithHira(text: String): String {
+        val sb = StringBuilder()
+        for (i in text.indices) {
+            var codepoint = text.codePointAt(i)
+            if (codepoint in 0x30A0..0x30F6) codepoint -= 0x30A0 - 0x3040 else if (codepoint in 0x30FD..0x30FE) codepoint -= 0x30A0 - 0x3040
+            sb.append(codepoint)
         }
-        return sb.toString();
+        return sb.toString()
     }
 
-    private List<EntryOptimized> jsonDictAnyAsIs(String text) {
+    private fun jsonDictAnyAsIs(text: String): List<EntryOptimized>? {
         //todo: custom dicts
-        return null;
+        return null
     }
 
-    private List<EntryOptimized> jsonLookupArbitraryAsIs(String text) {
+    private fun jsonLookupArbitraryAsIs(text: String): List<EntryOptimized>? {
         //todo: custom dicts
-        return null;
+        return null
     }
 
+    companion object {
+        private const val TAG = "EntrySearcher"
+    }
 
+    init {
+        // Create maps from all entries
+        for (i in dict.indices) {
+            val e = dict[i]
+            val existing: MutableList<Int> = if (!lookupKanji.containsKey(e.kanji)) {
+                lookupKanji.put(e.kanji, ArrayList())!!
+            } else {
+                lookupKanji[e.kanji]!!
+            }
+            existing.add(i)
+            for (reading in e.readings.split(", ").toTypedArray()) {
+                val existingR: MutableList<Int> = if (!lookupKana.containsKey(reading)) {
+                    lookupKana.put(reading, ArrayList())!!
+                } else {
+                    lookupKana[reading]!!
+                }
+                existingR.add(i)
+            }
+        }
+        Log.d(TAG, "First 5 JmDict entries")
+        for (i in 0..4) {
+            Log.d(TAG, dict[i].toString())
+        }
+        Log.d(
+            TAG, String.format(
+                "Built lookup tables: kanji %s, kana %s, entries %s",
+                lookupKanji.size,
+                lookupKana.size,
+                dict.size
+            )
+        )
+    }
 }
