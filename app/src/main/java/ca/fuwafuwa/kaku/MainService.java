@@ -22,15 +22,16 @@ import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
-import androidx.annotation.RequiresApi;
-import androidx.core.app.NotificationCompat;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.WindowManager;
 import android.widget.Toast;
 
+import androidx.annotation.RequiresApi;
+import androidx.core.app.NotificationCompat;
 import ca.fuwafuwa.kaku.Interfaces.Stoppable;
+import ca.fuwafuwa.kaku.Search.EntrySearcher;
 import ca.fuwafuwa.kaku.Windows.Window;
 import ca.fuwafuwa.kaku.Windows.WindowCoordinator;
 
@@ -229,6 +230,8 @@ public class MainService extends Service implements Stoppable {
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         notificationManager.notify(NOTIFICATION_ID, getNotification());
 
+        // Load search into memory
+        EntrySearcher.Companion.getInstance(this);
         return START_NOT_STICKY;
     }
 

@@ -18,15 +18,18 @@ import kotlin.collections.HashSet
  */
 
 class JmTask @Throws(SQLException::class)
-constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: SearchJmTaskDone, context: Context) : AsyncTask<Void, Void, List<JmSearchResult>>()
+constructor(private val mSearchInfo: SearchInfo,
+            private val mSearchJmTaskDone: SearchJmTaskDone,
+            context: Context) : AsyncTask<Void, Void, List<JmSearchResult>>()
 {
     companion object
     {
-        private val TAG = JmTask::class.java.getName()
+        private val TAG = JmTask::class.java.name
     }
 
     private val mJmDbHelper: JmDatabaseHelper = JmDatabaseHelper.instance(context)
     private val mDeinflector: Deinflector = Deinflector(context)
+    private val mEntrySearcher: EntrySearcher = EntrySearcher.getInstance(context)
 
     interface SearchJmTaskDone
     {
@@ -40,15 +43,15 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
         val entryOptimizedDao = mJmDbHelper.getDbDao<EntryOptimized>(EntryOptimized::class.java)
 
         val startDictTime = System.currentTimeMillis()
-        var character = String(intArrayOf(text.codePointAt(textOffset)), 0, 1)
-
-        // What the flying fuck? Wasn't the entire point of using an ORM is so shit would be escaped for me?
-        character = character.replace("%", "\\%")
-        character = character.replace("_", "\\_")
-        character = character.replace("'", "''")
-
-        val entries: List<EntryOptimized> = entryOptimizedDao.queryBuilder().where().like("kanji", "$character%").query()
-        val matchedEntries = rankResults(getMatchedEntries(text, textOffset, entries))
+//        var character = String(intArrayOf(text.codePointAt(textOffset)), 0, 1)
+//
+//        // What the flying fuck? Wasn't the entire point of using an ORM is so shit would be escaped for me?
+//        character = character.replace("%", "\\%")
+//        character = character.replace("_", "\\_")
+//        character = character.replace("'", "''")
+//
+//        val entries: List<EntryOptimized> = entryOptimizedDao.queryBuilder().where().like("kanji", "$character%").query()
+        val matchedEntries = rankResults(getMatchedEntries(text, textOffset, listOf()))
         Log.d(TAG, "Dict lookup time: ${System.currentTimeMillis() - startDictTime}")
 
         return matchedEntries
@@ -74,7 +77,8 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
             var count = 0
             for (deinfInfo in deinfResultsList)
             {
-                val filteredEntry: List<EntryOptimized> = entries.filter { entry -> entry.kanji == deinfInfo.word }
+//                val filteredEntry: List<EntryOptimized> = entries.filter { entry -> entry.kanji == deinfInfo.word }
+                val filteredEntry: List<EntryOptimized> = mEntrySearcher.search(deinfInfo.word)
 
                 if (filteredEntry.isEmpty())
                 {

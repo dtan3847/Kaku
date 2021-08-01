@@ -1,13 +1,50 @@
 package ca.fuwafuwa.kaku.Search
 
+import android.content.Context
 import android.util.Log
+import ca.fuwafuwa.kaku.Database.JmDictDatabase.JmDatabaseHelper
 import ca.fuwafuwa.kaku.Database.JmDictDatabase.Models.EntryOptimized
 import java.util.*
 
-class EntrySearcher internal constructor(private val dict: List<EntryOptimized>) {
+class EntrySearcher private constructor(context: Context) {
+    private val TAG = "EntrySearcher"
+    private val dict: List<EntryOptimized>
     private val lookupKanji: MutableMap<String, MutableList<Int>> = HashMap()
     private val lookupKana: MutableMap<String, MutableList<Int>> = HashMap()
-    fun search(text: String): List<EntryOptimized>? {
+    init {
+        val helper = JmDatabaseHelper.instance(context)
+        val dao = helper.getDbDao<EntryOptimized>(EntryOptimized::class.java)
+        dict = dao.queryForAll()
+        // Create maps from all entries
+        for (i in dict.indices) {
+            val e = dict[i]
+            if (!lookupKanji.containsKey(e.kanji)) {
+                lookupKanji[e.kanji] = ArrayList()
+            }
+            val existing: MutableList<Int> = lookupKanji[e.kanji]!!
+            existing.add(i)
+            for (reading in e.readings.split(", ").toTypedArray()) {
+                if (!lookupKana.containsKey(reading)) {
+                    lookupKana[reading] = ArrayList()
+                }
+                val existingR: MutableList<Int> = lookupKana[reading]!!
+                existingR.add(i)
+            }
+        }
+        Log.d(TAG, "First 5 JmDict entries")
+        for (i in 0..4) {
+            Log.d(TAG, dict[i].toString())
+        }
+        Log.d(
+            TAG, String.format(
+                "Built lookup tables: kanji %s, kana %s, entries %s",
+                lookupKanji.size,
+                lookupKana.size,
+                dict.size
+            )
+        )
+    }
+    fun search(text: String): List<EntryOptimized> {
         var ret: List<EntryOptimized>? = null
         ret = searchInner(text)
         if (ret != null) return ret
@@ -16,8 +53,9 @@ class EntrySearcher internal constructor(private val dict: List<EntryOptimized>)
         ret = searchInner(replaceKataWithHira(text))
         if (ret != null) return ret
         ret = jsonDictAnyAsIs(text)
+        if (ret != null) return ret
         //todo: custom dicts
-        return ret
+        return listOf()
     }
 
     private fun searchInner(text: String): List<EntryOptimized>? {
@@ -70,40 +108,6 @@ class EntrySearcher internal constructor(private val dict: List<EntryOptimized>)
         return null
     }
 
-    companion object {
-        private const val TAG = "EntrySearcher"
-    }
+    companion object : SingletonHolder<EntrySearcher, Context>(::EntrySearcher)
 
-    init {
-        // Create maps from all entries
-        for (i in dict.indices) {
-            val e = dict[i]
-            val existing: MutableList<Int> = if (!lookupKanji.containsKey(e.kanji)) {
-                lookupKanji.put(e.kanji, ArrayList())!!
-            } else {
-                lookupKanji[e.kanji]!!
-            }
-            existing.add(i)
-            for (reading in e.readings.split(", ").toTypedArray()) {
-                val existingR: MutableList<Int> = if (!lookupKana.containsKey(reading)) {
-                    lookupKana.put(reading, ArrayList())!!
-                } else {
-                    lookupKana[reading]!!
-                }
-                existingR.add(i)
-            }
-        }
-        Log.d(TAG, "First 5 JmDict entries")
-        for (i in 0..4) {
-            Log.d(TAG, dict[i].toString())
-        }
-        Log.d(
-            TAG, String.format(
-                "Built lookup tables: kanji %s, kana %s, entries %s",
-                lookupKanji.size,
-                lookupKana.size,
-                dict.size
-            )
-        )
-    }
 }
