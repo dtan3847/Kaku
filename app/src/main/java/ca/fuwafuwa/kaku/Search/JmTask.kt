@@ -65,21 +65,21 @@ constructor(private val mSearchInfo: SearchInfo,
     @Throws(SQLException::class)
     private fun getMatchedEntries(text: String, textOffset: Int, entries: List<EntryOptimized>): List<JmSearchResult>
     {
-        val end = if (textOffset + 80 >= text.length) text.length else textOffset + 80
+        val end = if (textOffset + 25 >= text.length) text.length else textOffset + 25
         var word = text.substring(textOffset, end)
         val seenEntries = HashSet<EntryOptimized>()
         val results = ArrayList<JmSearchResult>()
+        var first = true
 
         while (word.isNotEmpty())
         {
             // Find deinflections and add them
             val deinfResultsList: List<DeinflectionInfo> = mDeinflector.getPotentialDeinflections(word)
-            var count = 0
             for (deinfInfo in deinfResultsList)
             {
 //                val filteredEntry: List<EntryOptimized> = entries.filter { entry -> entry.kanji == deinfInfo.word }
                 val filteredEntry: List<EntryOptimized> = mEntrySearcher.search(deinfInfo.word)
-
+                // todo: sort filtered
                 if (filteredEntry.isEmpty())
                 {
                     continue
@@ -93,7 +93,7 @@ constructor(private val mSearchInfo: SearchInfo,
 
                     var valid = true
 
-                    if (count > 0)
+                    if (!first)
                     {
                         valid = (deinfInfo.type and 1 != 0) && (entry.pos.contains("v1")) ||
                                 (deinfInfo.type and 2 != 0) && (entry.pos.contains("v5")) ||
@@ -106,9 +106,8 @@ constructor(private val mSearchInfo: SearchInfo,
                         results.add(JmSearchResult(entry, deinfInfo, word))
                         seenEntries.add(entry)
                     }
-
-                    count++
                 }
+                if (results.isNotEmpty()) first = false
             }
 
             // Add all exact matches as well
