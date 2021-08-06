@@ -133,6 +133,7 @@ public class MainService extends Service implements Stoppable {
                         mMediaProjection.unregisterCallback(MediaProjectionStopCallback.this);
                         mMediaProjection = null;
                         mImageReader.close();
+                        unregisterReceiver(mScreenOffReceiver);
                     }
                 }
             });
